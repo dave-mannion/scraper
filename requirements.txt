@@ -1,1 +1,2 @@
 Scrapy==2.11.2
+scrapy-playwright==0.0.43
