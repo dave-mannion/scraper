@@ -3,20 +3,29 @@ import csv
 import re
 from scrapy_playwright.page import PageMethod
 
+# ===================================================================
+# === EDIT THIS LINE TO CHANGE THE INPUT FILE PATH ===
+# ===================================================================
+INPUT_CSV_PATH = '/Users/dave/Documents/Projects/football/data/fifa_data/missing_players_fc26.csv'
+# ===================================================================
+
+
 class BirthdaySpider(scrapy.Spider):
     name = 'birthdays'
     allowed_domains = ['sofifa.com']
 
-    def __init__(self, input_file='/Users/dave/Documents/Projects/football/data/fifa_data/missing_players_fc25.csv', *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super(BirthdaySpider, self).__init__(*args, **kwargs)
-        self.input_file = input_file
+        # The spider now uses the variable defined at the top of the script
+        self.input_file = INPUT_CSV_PATH
         self.logger.info(f"Reading player URLs from: {self.input_file}")
 
     def start_requests(self):
         page_actions = [
+            # These actions try to click consent/accept buttons that might appear on the page
             PageMethod("evaluate", "Array.from(document.querySelectorAll('button')).find(el => el.textContent.includes('Accept All'))?.click()"),
             PageMethod("evaluate", "Array.from(document.querySelectorAll('button')).find(el => el.textContent.toLowerCase().includes('consent'))?.click()"),
-            PageMethod('wait_for_timeout', 1000)
+            PageMethod('wait_for_timeout', 1000) # Wait a moment for any overlays to disappear
         ]
         try:
             with open(self.input_file, 'r', encoding='utf-8') as f:
@@ -41,19 +50,34 @@ class BirthdaySpider(scrapy.Spider):
     def parse_player_page(self, response):
         player_data = response.meta['player_data']
         
-        # --- CORRECTED BIRTHDAY EXTRACTION LOGIC ---
-        # 1. Select the text node that contains the age, birthday, height, and weight
+        # --- BIRTHDAY EXTRACTION LOGIC ---
         player_meta_text = response.xpath('//div[contains(@class, "profile")]/p/text()').getall()
-        
         birthday = None
-        # The text is usually in the second node, but we loop for safety
         for text_node in player_meta_text:
-            # 2. Use regex to find the content inside the parentheses
             match = re.search(r'\((.*?)\)', text_node)
             if match:
-                birthday = match.group(1)
-                break # Stop once we find it
-
+                birthday = match.group(1).strip()
+                break
         player_data['birthday'] = birthday
+
+        # --- KIT NUMBER EXTRACTION LOGIC ---
+        kit_number_raw = response.xpath('//p[label[text()="Kit number"]]/text()').get()
+        player_data['kit_number'] = kit_number_raw.strip() if kit_number_raw else None
+
+        # --- POSITIONAL RATING EXTRACTION LOGIC ---
+        position_divs = response.xpath('//div[contains(@class, "lineup")]//div[contains(@class, "pos")]')
+        
+        for pos_div in position_divs:
+            pos_name_raw = pos_div.xpath('text()').get()
+            rating_str_raw = pos_div.xpath('em/text()').get()
+            
+            if pos_name_raw and rating_str_raw:
+                pos_name = pos_name_raw.strip().lower()
+                
+                # Get the full rating string, e.g., '78+0', and strip any whitespace.
+                full_rating = rating_str_raw.strip()
+                
+                # Add the full rating string to the player_data dictionary
+                player_data[f'pos_{pos_name}'] = full_rating
         
         yield player_data
