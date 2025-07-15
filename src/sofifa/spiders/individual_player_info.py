@@ -10,12 +10,12 @@ INPUT_CSV_PATH = '/Users/dave/Documents/Projects/football/data/fifa_data/missing
 # ===================================================================
 
 
-class BirthdaySpider(scrapy.Spider):
-    name = 'birthdays'
+class IndividualPlayerInfoSpider(scrapy.Spider):
+    name = 'individual_player_info'
     allowed_domains = ['sofifa.com']
 
     def __init__(self, *args, **kwargs):
-        super(BirthdaySpider, self).__init__(*args, **kwargs)
+        super(IndividualPlayerInfoSpider, self).__init__(*args, **kwargs)
         # The spider now uses the variable defined at the top of the script
         self.input_file = INPUT_CSV_PATH
         self.logger.info(f"Reading player URLs from: {self.input_file}")
